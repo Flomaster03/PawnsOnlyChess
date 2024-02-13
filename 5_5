@@ -1,0 +1,278 @@
+package chess
+
+import kotlin.math.abs
+
+const val CELLS = 8 //размеры поля
+const val BLACK = 'B'
+const val WHITE = 'W'
+
+private lateinit var whitePlayerName: String
+private lateinit var blackPlayerName: String
+private var isWhiteMove = true
+private var previousWhiteMove = Pair(false, "") //предыдущий ход белых: первый двойной ход или нет, координаты хода
+private var previousBlackMove = Pair(false, "") //предыдущий ход черных: первый двойной ход или нет, координаты хода
+private var characterMove = ""
+
+fun main() {
+    prepareGame()
+    playGame()
+}
+
+fun prepareGame() {
+    println("Pawns-Only Chess")
+    println("First Player's name:")
+    whitePlayerName = readln()
+    println("Second Player's name:")
+    blackPlayerName = readln()
+    fillEmptyField()
+    fillPawnsField(Field.white, 2, WHITE)
+    fillPawnsField(Field.black, 7, BLACK)
+    printField()
+    println()
+}
+
+fun playGame() {
+    while (true) {
+        println("${if (isWhiteMove) whitePlayerName else blackPlayerName}'s turn:")
+        val enter = readln()
+        if (enter == "exit") {
+            println("Bye!")
+            break
+        }
+        if (!checkIsPawnInStart(enter)) continue
+        if (!checkIsMovePossible(enter)) {
+            println("Invalid Input")
+            continue
+        } else {
+            pawnMove(enter)
+            printField()
+            if (isFinishGame()) break
+            isWhiteMove = !isWhiteMove
+        }
+    }
+}
+
+//проверка, находится ли в исходной клетке пешка игрока
+fun checkIsPawnInStart(move: String): Boolean {
+    if (!checkIsCellOccupied(Pair(move[0], move[1].digitToInt()), if (isWhiteMove) "white" else "black")) {
+        println("No ${if (isWhiteMove) "white" else "black"} pawn at ${move[0]}${move[1]}")
+        return false
+    }
+    return true
+}
+
+
+//общая проверка, можно ли выполнить ход
+fun checkIsMovePossible(move: String): Boolean {
+    if (!move.matches("[a-h][1-8][a-h][1-8]".toRegex())) return false //проверка цифр и букв, что они в пределах поля и их 4
+    if (isWhiteMove && move[3].digitToInt() - move[1].digitToInt() < 0 ||
+        !isWhiteMove && move[3].digitToInt() - move[1].digitToInt() > 0
+    ) return false //проверка, что пешка не идет назад
+
+    when {
+        // если ход прямой
+        move[0] == move[2] -> return checkIsStraightMovePossible(move)
+        // если ход по диагонали
+        else -> {
+            if (!checkIsDiagonalMovePossible(move)) {
+                return false
+            } else if (checkIsEnPassantMove(move)) {  //
+                characterMove = "enPassant"
+                return true
+            } else {
+                characterMove = "diagonal"
+                return true
+            }
+        }
+    }
+}
+
+//проверка возможен ли прямой ход
+fun checkIsStraightMovePossible(move: String): Boolean {
+    val nextCell = if (isWhiteMove) 1 else -1 //какую цифру прибавить, чтобы следующая клетка была по ходу движения
+    when (characterOfMove(move).second) {
+        1 -> {  //проверка не находится ли пешка в клетке назначения
+            if (checkIsCellOccupied(Pair(move[0], move[1].digitToInt() + nextCell), "white") ||
+                checkIsCellOccupied(Pair(move[0], move[1].digitToInt() + nextCell), "black")
+            ) return false
+        }
+
+        2 -> {
+            if (!characterOfMove(move).first) return false //если ход не первый
+            //проверка не находится ли другая пешка в клетке назначения
+            if (checkIsCellOccupied(Pair(move[0], move[1].digitToInt() + nextCell), "white") ||
+                checkIsCellOccupied(Pair(move[0], move[1].digitToInt() + nextCell), "black") ||
+                checkIsCellOccupied(Pair(move[0], move[1].digitToInt() + nextCell * 2), "white") ||
+                checkIsCellOccupied(Pair(move[0], move[1].digitToInt() + nextCell * 2), "black")
+            ) return false
+        }
+
+        else -> return false //проверка что длина хода не больше 2 и не равна 0
+    }
+    return true
+}
+
+//проверка, возможен ли ход по диагонали
+fun checkIsDiagonalMovePossible(move: String): Boolean {
+    if (characterOfMove(move).second != 1) return false //проверка, что ход будет на 1 клетку по горизонтали вперед (цифра)
+    if (move[2] !in move[0] - 1..move[0] + 1) return false //проверка, что ход будет на соседнюю по вертикали клетку (буква)
+    val previousPlayer = if (isWhiteMove) "black" else "white"
+    if (!checkIsEnPassantMove(move) && !checkIsCellOccupied(Pair(move[2], move[3].digitToInt()), previousPlayer)) return false
+    return true
+}
+
+// проверка является ли ход проходным
+fun checkIsEnPassantMove(move: String): Boolean {
+    val nextCell = if (isWhiteMove) 1 else -1 //какую цифру прибавить, чтобы следующая клетка была по ходу движения
+    val previousMove = if (isWhiteMove) previousBlackMove else previousWhiteMove // какого цвета пешка ходила перед этим
+    val previousPlayer = if (isWhiteMove) "black" else "white"
+    //если ниже и на соседней боковой клетке нет противоположной пешки
+    if (!checkIsCellOccupied(Pair(move[2], move[3].digitToInt() - nextCell), previousPlayer)) return false
+    //если пешка, расположенная сбоку и ниже на клетке, перед этим не ходила или это был ее не первый двойной ход
+    if (!previousMove.first || previousMove.second[2] != move[2] ||
+        previousMove.second[3].digitToInt() != move[3].digitToInt() - nextCell) return false
+    return true
+}
+
+//проверка, находится в данном поле пешка нужного игрока
+fun checkIsCellOccupied(cell: Pair<Char, Int>, player: String): Boolean =
+    if (player == "white") Field.white.contains(cell) else Field.black.contains(cell)
+
+
+//характеристика хода: первый ход или нет, на сколько клеток двигается пешка
+fun characterOfMove(move: String): Pair<Boolean, Int> {
+    val numberOfCell = abs(move[3].digitToInt() - move[1].digitToInt()) //на сколько клеток двигается пешка
+    val startPosition = if (isWhiteMove) 2 else 7
+    val isFirstMove = move[1].digitToInt() == startPosition //первый ход пешки или нет
+    return Pair(isFirstMove, numberOfCell)
+}
+
+// пешка ходит. Ее предыдущие координаты удаляются, новые добавляются. Если при этом срублена пешка, она удаляется из пешек и поля.
+fun pawnMove(move: String) {
+    val nextCell = if (isWhiteMove) 1 else -1 //какую цифру прибавить, чтобы следующая клетка была по ходу движения
+    val fromCell = Pair(move[0], move[1].digitToInt())
+    val toCell = Pair(move[2], move[3].digitToInt())
+    // удаление срубленной пешки
+    var pawns = if (!isWhiteMove) Field.white else Field.black
+    if (characterMove == "enPassant") {
+        pawns.remove(Pair(move[2], move[3].digitToInt() - nextCell)) //удаление координат срубленной пешки из списка пешек
+        Field.field[convertRowToVert(move[3].digitToInt() - nextCell)][convertColToHor(move[2])] = ' '//удаление срубленной пешки с поля
+    }
+    if (characterMove == "diagonal") {
+        pawns.remove(Pair(move[2], move[3].digitToInt())) //удаление координат срубленной пешки из списка пешек
+        Field.field[convertRowToVert(move[3].digitToInt())][convertColToHor(move[2])] = ' '//удаление срубленной пешки с поля
+    }
+
+    pawns = if (isWhiteMove) Field.white else Field.black
+    val pawn = if (isWhiteMove) WHITE else BLACK
+    //закладываются характеристики совершенного хода: является он первичным на две клетки или нет и координаты хода
+    if (isWhiteMove) previousWhiteMove else previousBlackMove =
+        Pair(characterOfMove(move).first && characterOfMove(move).second == 2, move)
+    pawns.remove(fromCell) //удаление координат походившей пешки из списка пешек (откуда ходила)
+    pawns.add(toCell) //добавление координат походившей пешки в список пешек (куда пошла)
+    Field.field[convertRowToVert(toCell.second)][convertColToHor(toCell.first)] = pawn //добавление походившей пешки на доску
+    Field.field[convertRowToVert(fromCell.second)][convertColToHor(fromCell.first)] = ' '//удаление походившей пешки с поля
+}
+
+// проверка окончена ли игра
+fun isFinishGame(): Boolean {
+    return when {
+        checkIsWin() -> {
+            println("${if (isWhiteMove) "White" else "Black"} Wins!\nBye!")
+            true
+        }
+        checkIsStalemate() -> {
+            println("Stalemate!\nBye!")
+            true
+        }
+        else -> false
+    }
+}
+
+//проверка, победил кто-то после хода (isWhiteMove еще не менялся и принадлежит ходу, который только что состоялся)
+fun checkIsWin(): Boolean {
+    var pawns = if (!isWhiteMove) Field.white else Field.black
+    if (pawns.size == 0) return true //проверка после хода пешки, остались ли пешки противоположного цвета на доске
+    pawns = if (isWhiteMove) Field.white else Field.black
+    val endCell = if (isWhiteMove) 8 else 1
+    for (pawn in pawns) {  //проверка после хода пешки, дошла ли какая-то до противоположного края доски
+        if (pawn.second == endCell) return true
+    }
+    return false
+}
+
+//проверка на ничью после хода (isWhiteMove еще не менялся и принадлежит ходу, который только что состоялся)
+fun checkIsStalemate(): Boolean {
+    val pawns = if (isWhiteMove) Field.black else Field.white //(будут проверяться пешки, чей ход сейчас наступит)
+    val nextCell = if (isWhiteMove) -1 else 1
+    val previousPlayer = if (isWhiteMove) "white" else "black"
+    val previousMove = if (isWhiteMove) previousWhiteMove else previousBlackMove // какого цвета пешка ходила перед этим и характеристики ее хода
+
+    for (pawn in pawns) {  //проверка после хода пешки, есть ли хоть у какой-то противоположной пешки возможность пойти вперед или по диагонали
+        if (!checkIsCellOccupied(Pair(pawn.first, pawn.second + nextCell), "white") &&
+            !checkIsCellOccupied(Pair(pawn.first, pawn.second + nextCell), "black")) return false // можно пойти прямо
+        if (checkIsCellOccupied(Pair(pawn.first - 1, pawn.second + nextCell), previousPlayer) ||
+            checkIsCellOccupied(Pair(pawn.first + 1, pawn.second + nextCell), previousPlayer)) return false  //возможно срубить по диагонали
+    }
+    if (previousMove.first) {
+        val previousCellRight = Pair(previousMove.second[2] + 1, previousMove.second[3].digitToInt()) // клетка справа от клетки, где стоит только что ходившая пешка
+        val previousCellLeft = Pair(previousMove.second[2] - 1, previousMove.second[3].digitToInt()) // клетка слева от клетки, где стоит только что ходившая пешка
+        for (pawn in pawns) {
+            if (previousCellRight == pawn || previousCellLeft == pawn) return false //возможность срубить после проходного хода
+        }
+    }
+    return true
+}
+
+//конвертация координаты "y" в № строки
+fun convertVertToRow(vert: Int): Int = CELLS - ((vert + 1) / 2 - 1)
+
+//конвертация № строки в координату "y".
+fun convertRowToVert(row: Int): Int = (CELLS + 1 - row) * 2 - 1
+
+//конвертация координаты "x" в буквенный столбец
+fun convertHorToCol(hor: Int): Char = 'a' + (hor - 1) / 4
+
+//конвертация буквенного столбца в координату "x"
+fun convertColToHor(col: Char): Int {
+    val symbol = if (col == 'a') 1 else (col.code - 'a'.code + 1)
+    return symbol * 4
+}
+
+//заполнение поля без пешек
+fun fillEmptyField() {
+    for (v in 0 until Field.field.size) {
+        for (h in 0 until Field.field[v].size) {
+            if (v % 2 == 0 && (h + 2) % 4 == 0) Field.field[v][h] = '+'
+            if (v % 2 != 0 && v < Field.field.size - 1 && (h + 2) % 4 == 0) Field.field[v][h] = '|'
+            if (v % 2 == 0 && h > 2 && (h + 2) % 4 != 0) Field.field[v][h] = '-'
+            if (v % 2 != 0 && v < Field.field.size - 1 && h == 0) Field.field[v][0] = convertVertToRow(v).digitToChar()
+            if (v == Field.field.size - 1 && h > 0 && h % 4 == 0) Field.field[v][h] = convertHorToCol(h)
+        }
+    }
+}
+
+//добавление начального расположения пешек
+fun fillPawnsField(pawns: MutableList<Pair<Char, Int>>, row: Int, pawn: Char) {
+    val v = convertRowToVert(row)
+    for (i in 0 until CELLS) {
+        pawns.add(Pair('a' + i, row))
+        Field.field[v][4 * (i + 1)] = pawn
+    }
+}
+
+//печать поля
+fun printField() {
+    for (i in Field.field) {
+        for (j in i) {
+            print(j)
+        }
+        println()
+    }
+}
+
+object Field {
+    val field = Array(CELLS * 2 + 2) { Array(CELLS * 4 + 3) { ' ' } } //игровое поле, которое печатается
+    val white = mutableListOf<Pair<Char, Int>>() //белые пешки
+    val black = mutableListOf<Pair<Char, Int>>() //черные пешки
+}
