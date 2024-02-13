@@ -1,0 +1,95 @@
+package chess
+
+const val CELL = 8 //размеры поля
+const val BLACK = 'B'
+const val WHITE = 'W'
+
+private lateinit var whitePlayerName: String
+private lateinit var blackPlayerName: String
+private var isWhiteMove = true
+
+fun main() {
+    prepareGame()
+    playGame()
+}
+
+fun prepareGame() {
+    println("Pawns-Only Chess")
+    println("First Player's name:")
+    whitePlayerName = readln()
+    println("Second Player's name:")
+    blackPlayerName = readln()
+    fillEmptyField()
+    fillPawnsField(Field.white, 7, BLACK)
+    fillPawnsField(Field.black, 2, WHITE)
+    printField()
+    println()
+}
+
+fun playGame() {
+    while (true) {
+        println("${if (isWhiteMove) whitePlayerName else blackPlayerName}'s turn:")
+        val enter = readln()
+        if (enter == "exit") {
+            println("Bye!")
+            break
+        }
+        if (!enter.matches("[a-h][1-8][a-h][1-8]".toRegex())) {
+            println("Invalid Input")
+            continue
+        } else {
+            isWhiteMove = !isWhiteMove
+        }
+    }
+}
+
+//заполнение поля без пешек
+fun fillEmptyField() {
+    for (v in 0 until Field.field.size) {
+        for (h in 0 until Field.field[v].size) {
+            if (v % 2 == 0 && (h + 2) % 4 == 0) Field.field[v][h] = '+'
+            if (v % 2 != 0 && v < Field.field.size - 1 && (h + 2) % 4 == 0) Field.field[v][h] = '|'
+            if (v % 2 == 0 && h > 2 && (h + 2) % 4 != 0) Field.field[v][h] = '-'
+            if (v % 2 != 0 && v < Field.field.size - 1 && h == 0) Field.field[v][0] = convertVertToRow(v).digitToChar()
+            if (v == Field.field.size - 1 && h > 0 && h % 4 == 0) Field.field[v][h] = convertHorToCol(h)
+        }
+    }
+}
+
+//конвертация координаты "y" в № строки
+fun convertVertToRow(vert: Int): Int = CELL - ((vert + 1) / 2 - 1)
+
+//конвертация № строки в координату "y".
+fun convertRowToVert(row: Int): Int = (CELL + 1 - row) * 2 - 1
+
+//конвертация координаты "x" в буквенный столбец
+fun convertHorToCol(hor: Int): Char = 'a' + (hor - 1) / 4
+
+//конвертация буквенного столбца в координату "y"
+fun convertColToHor(col: Char): Int = (col.digitToInt() - 'a'.digitToInt()) * 4 + 1
+
+//добавление начального расположения пешек
+fun fillPawnsField(pawns: MutableList<Pair<Int, Char>>, row: Int, pawn: Char) {
+    val v = convertRowToVert(row)
+    for (i in 0 until CELL) {
+        pawns.add(Pair(v, convertHorToCol(i)))
+        Field.field[v][4 * (i + 1)] = pawn
+    }
+}
+
+//печать поля
+fun printField() {
+    for (i in Field.field) {
+        for (j in i) {
+            print(j)
+        }
+        println()
+    }
+}
+
+
+object Field {
+    val field = Array(CELL * 2 + 2) {Array( CELL * 4 + 3) {' '} }
+    val white = mutableListOf<Pair<Int, Char>>() //белые пешки
+    val black = mutableListOf<Pair<Int, Char>>() //черные пешки
+}
