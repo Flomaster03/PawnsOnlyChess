@@ -1,0 +1,66 @@
+package chess
+
+const val CELL = 8 //размеры поля
+const val BLACK = 'B'
+const val WHITE = 'W'
+
+
+fun main() {
+    fillEmptyField()
+    fillPawnsField(Field.white, 7, BLACK)
+    fillPawnsField(Field.black, 2, WHITE)
+    println("Pawns-Only Chess")
+    printField()
+
+}
+
+//заполнение поля без пешек
+fun fillEmptyField() {
+    for (v in 0 until Field.field.size) {
+        for (h in 0 until Field.field[v].size) {
+            if (v % 2 == 0 && (h + 2) % 4 == 0) Field.field[v][h] = '+'
+            if (v % 2 != 0 && v < Field.field.size - 1 && (h + 2) % 4 == 0) Field.field[v][h] = '|'
+            if (v % 2 == 0 && h > 2 && (h + 2) % 4 != 0) Field.field[v][h] = '-'
+            if (v % 2 != 0 && v < Field.field.size - 1 && h == 0) Field.field[v][0] = convertVertToRow(v).digitToChar()
+            if (v == Field.field.size - 1 && h > 0 && h % 4 == 0) Field.field[v][h] = convertHorToCol(h)
+        }
+    }
+}
+
+//конвертация координаты "y" в № строки
+fun convertVertToRow(vert: Int): Int = CELL - ((vert + 1) / 2 - 1)
+
+//конвертация № строки в координату "y".
+fun convertRowToVert(row: Int): Int = (CELL + 1 - row) * 2 - 1
+
+//конвертация координаты "x" в буквенный столбец
+fun convertHorToCol(hor: Int): Char = 'a' + (hor - 1) / 4
+
+//конвертация буквенного столбца в координату "y"
+fun convertColToHor(col: Char): Int = (col.digitToInt() - 'a'.digitToInt()) * 4 + 1
+
+//добавление начального расположения пешек
+fun fillPawnsField(pawns: MutableList<Pair<Int, Int>>, row: Int, pawn: Char) {
+    val v = convertRowToVert(row)
+    for (i in 0 until CELL) {
+        pawns.add(Pair(v, 4 * (i + 1)))
+        Field.field[v][4 * (i + 1)] = pawn
+    }
+}
+
+//печать поля
+fun printField() {
+    for (i in Field.field) {
+        for (j in i) {
+            print(j)
+        }
+        println()
+    }
+}
+
+
+object Field {
+    val field = Array(CELL * 2 + 2) {Array( CELL * 4 + 3) {' '} }
+    val white = mutableListOf<Pair<Int, Int>>() //белые пешки
+    val black = mutableListOf<Pair<Int, Int>>() //черные пешки
+}
